@@ -18,6 +18,7 @@ const {
   WG_DEFAULT_ADDRESS,
   WG_PERSISTENT_KEEPALIVE,
   WG_ALLOWED_IPS,
+  WG_HARDEN_CLIENTS,
 } = require('../config');
 
 module.exports = class WireGuard {
@@ -181,10 +182,23 @@ AllowedIPs = ${client.address}/32`;
   async getClientConfiguration({ clientId }) {
     const config = await this.getConfig();
     const client = await this.getClient({ clientId });
+    var { privateKey } = client;
+
+    if (WG_HARDEN_CLIENTS) {
+      // Generate new client keys
+      privateKey = await Util.exec('wg genkey');
+      client.privateKey = null;
+      client.publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`);
+      client.preSharedKey = await Util.exec('wg genpsk');
+
+      // Restart gateway to complete key regen
+      await this.saveConfig();
+      await this.restartGateway();
+    }
 
     return `
 [Interface]
-PrivateKey = ${client.privateKey}
+PrivateKey = ${privateKey}
 Address = ${client.address}/24
 ${WG_DEFAULT_DNS ? `DNS = ${WG_DEFAULT_DNS}` : ''}
 
@@ -232,12 +246,15 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
       throw new Error('Maximum number of clients reached.');
     }
 
+    // Avoid lint problem
+    const realPrivateKey = WG_HARDEN_CLIENTS ? null : privateKey;
+
     // Create Client
     const clientId = uuid.v4();
     const client = {
       name,
       address,
-      privateKey,
+      realPrivateKey,
       publicKey,
       preSharedKey,
 
