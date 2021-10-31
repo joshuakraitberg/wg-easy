@@ -74,6 +74,10 @@ module.exports = class WireGuard {
     this.gatewayUp = true;
   }
 
+  async areClientsHardened() {
+    return WG_HARDEN_CLIENTS;
+  }
+
   async saveConfig() {
     const config = await this.getConfig();
     await this.__saveConfig(config);
@@ -182,7 +186,7 @@ AllowedIPs = ${client.address}/32`;
   async getClientConfiguration({ clientId }) {
     const config = await this.getConfig();
     const client = await this.getClient({ clientId });
-    var { privateKey } = client;
+    let { privateKey } = client;
 
     if (WG_HARDEN_CLIENTS) {
       // Generate new client keys

@@ -86,6 +86,9 @@ module.exports = class Server {
 
         debug(`Deleted Session: ${sessionId}`);
       }))
+      .get('/api/wireguard/hardened', Util.promisify(async req => {
+        return WireGuard.areClientsHardened();
+      }))
       .get('/api/wireguard/client', Util.promisify(async req => {
         return WireGuard.getClients();
       }))

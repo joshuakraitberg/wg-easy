@@ -16,6 +16,8 @@ new Vue({
     clients: null,
     clientDelete: null,
     clientCreate: null,
+    clientQRShow: null,
+    clientConfigDownload: null,
     clientCreateName: '',
     clientEditName: null,
     clientEditNameId: null,
@@ -84,6 +86,9 @@ new Vue({
         .catch(err => {
           alert(err.message || err.toString());
         });
+    },
+    areClientsHardened() {
+      return this.api.areClientsHardened();
     },
     createClient() {
       const name = this.clientCreateName;
