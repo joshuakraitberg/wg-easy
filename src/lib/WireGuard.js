@@ -103,6 +103,10 @@ AllowedIPs = ${client.address}/32`;
     debug('Config synced.');
   }
 
+  async getDns() {
+    return WG_DEFAULT_DNS ? WG_DEFAULT_DNS : null;
+  }
+
   async getClients() {
     const config = await this.getConfig();
     const clients = Object.entries(config.clients).map(([clientId, client]) => ({

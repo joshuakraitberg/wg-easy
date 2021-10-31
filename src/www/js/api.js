@@ -58,6 +58,13 @@ class API {
     });
   }
 
+  async getDns() {
+    return this.call({
+      method: 'get',
+      path: '/wireguard/dns',
+    });
+  }
+
   async getClients() {
     return this.call({
       method: 'get',

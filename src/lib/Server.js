@@ -86,6 +86,9 @@ module.exports = class Server {
 
         debug(`Deleted Session: ${sessionId}`);
       }))
+      .get('/api/wireguard/dns', Util.promisify(async req => {
+        return WireGuard.getDns();
+      }))
       .get('/api/wireguard/client', Util.promisify(async req => {
         return WireGuard.getClients();
       }))
