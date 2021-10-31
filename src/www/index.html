@@ -185,7 +185,7 @@
 
                   <!-- Show QR-->
                   <button class="align-middle bg-gray-100 hover:bg-red-800 hover:text-white p-2 rounded transition"
-                    title="Show QR Code" @click="qrcode = `/api/wireguard/client/${client.id}/qrcode.svg`">
+                    title="Show QR Code" @click="qrcode = `/api/wireguard/client/${client.id}/qrcode.svg?${Date.now()}`;">
                     <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                       stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
