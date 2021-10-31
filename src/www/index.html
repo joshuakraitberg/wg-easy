@@ -309,6 +309,14 @@
                           type="text" v-model.trim="clientCreateName" placeholder="Name" />
                         <input class="rounded p-2 border-2 border-gray-100 focus:border-gray-200 outline-none w-full"
                           type="text" v-model.trim="clientCreateAllowedIPs" placeholder="AllowedIPs" />
+                          <button type="button" @click="clientCreateAllowedIPs = clientCreateAllowedIPsDefault"
+                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-800 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                            Allow all IPs
+                          </button>
+                          <button type="button" @click="clientCreateAllowedIPs = clientCreateAllowedIPsExclude"
+                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-800 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                            Exclude private IPs
+                          </button>
                       </p>
                     </div>
                   </div>
