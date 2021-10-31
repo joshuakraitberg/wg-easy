@@ -18,7 +18,6 @@ new Vue({
     clientCreate: null,
     clientQRShow: null,
     clientConfigDownload: null,
-    clientConfigDownloadID: null,
     clientCreateName: '',
     clientCreateAllowedIPs: '',
     clientCreateAllowedIPsDefault: '0.0.0.0/0, ::0/0',
