@@ -17,6 +17,8 @@ new Vue({
     clientDelete: null,
     clientCreate: null,
     clientCreateName: '',
+    clientCreateAllowedIPs: '',
+    clientCreateAllowedIPsDefault: '0.0.0.0/0, ::0/0',
     clientEditName: null,
     clientEditNameId: null,
     clientEditAddress: null,
@@ -87,9 +89,11 @@ new Vue({
     },
     createClient() {
       const name = this.clientCreateName;
+      const allowedIPs = this.clientCreateAllowedIPs;
       if (!name) return;
+      if (!allowedIPs) return;
 
-      this.api.createClient({ name })
+      this.api.createClient({ name, allowedIPs })
         .catch(err => alert(err.message || err.toString()))
         .finally(() => this.refresh().catch(console.error));
     },

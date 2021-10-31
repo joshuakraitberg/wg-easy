@@ -17,7 +17,6 @@ const {
   WG_DEFAULT_DNS,
   WG_DEFAULT_ADDRESS,
   WG_PERSISTENT_KEEPALIVE,
-  WG_ALLOWED_IPS,
 } = require('../config');
 
 module.exports = class WireGuard {
@@ -177,7 +176,7 @@ ${WG_DEFAULT_DNS ? `DNS = ${WG_DEFAULT_DNS}` : ''}
 [Peer]
 PublicKey = ${config.server.publicKey}
 PresharedKey = ${client.preSharedKey}
-AllowedIPs = ${WG_ALLOWED_IPS}
+AllowedIPs = ${client.allowedIPs}
 PersistentKeepalive = ${WG_PERSISTENT_KEEPALIVE}
 Endpoint = ${WG_HOST}:${WG_PORT}`;
   }
@@ -190,9 +189,12 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
     });
   }
 
-  async createClient({ name }) {
+  async createClient({ name, allowedIPs }) {
     if (!name) {
       throw new Error('Missing: Name');
+    }
+    if (!allowedIPs) {
+      throw new Error('Missing: allowedIPs');
     }
 
     const config = await this.getConfig();
@@ -226,6 +228,7 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
       privateKey,
       publicKey,
       preSharedKey,
+      allowedIPs: allowedIPs,
 
       createdAt: new Date(),
       updatedAt: new Date(),
