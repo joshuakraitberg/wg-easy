@@ -36,7 +36,7 @@ module.exports = class WireGuard {
           debug('Configuration loaded.');
         } catch (err) {
           const privateKey = await Util.exec('wg genkey');
-          const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`);
+          const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, privateKey);
           const address = WG_DEFAULT_ADDRESS.replace('x', '1');
 
           config = {
@@ -184,7 +184,7 @@ AllowedIPs = ${client.address}/32`;
     const config = await this.getConfig();
     const client = await this.getClient({ clientId });
     const privateKey = await Util.exec('wg genkey');
-    client.publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`);
+    client.publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, privateKey);
     client.preSharedKey = await Util.exec('wg genpsk');
 
     await this.saveConfig();
