@@ -53,7 +53,8 @@ module.exports = class WireGuard {
         }
 
         await this.__saveConfig(config);
-        await this.restartGateway();
+        await Util.exec('wg-quick down wg0').catch(() => {});
+        await Util.exec('wg-quick up wg0');
         await Util.exec(`iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS.replace('x', '0')}/24 -o eth0 -j MASQUERADE`);
         await Util.exec('iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT');
         await Util.exec('iptables -A FORWARD -i wg0 -j ACCEPT');
@@ -65,13 +66,6 @@ module.exports = class WireGuard {
     }
 
     return this.__configPromise;
-  }
-
-  async restartGateway() {
-    this.gatewayUp = false;
-    await Util.exec('wg-quick down wg0').catch(() => {});
-    await Util.exec('wg-quick up wg0');
-    this.gatewayUp = true;
   }
 
   async areClientsHardened() {
@@ -137,10 +131,6 @@ AllowedIPs = ${client.address}/32`;
       transferTx: null,
     }));
 
-    if (!this.gatewayUp) {
-      return clients;
-    }
-
     // Loop WireGuard status
     const dump = await Util.exec('wg show wg0 dump');
     dump
@@ -197,7 +187,6 @@ AllowedIPs = ${client.address}/32`;
 
       // Restart gateway to complete key regen
       await this.saveConfig();
-      await this.restartGateway();
     }
 
     return `
