@@ -17,7 +17,6 @@ const {
   WG_DEFAULT_DNS,
   WG_DEFAULT_ADDRESS,
   WG_PERSISTENT_KEEPALIVE,
-  WG_ALLOWED_IPS,
   WG_HARDEN_CLIENTS,
 } = require('../config');
 
@@ -38,7 +37,7 @@ module.exports = class WireGuard {
           debug('Configuration loaded.');
         } catch (err) {
           const privateKey = await Util.exec('wg genkey');
-          const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`);
+          const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, privateKey);
           const address = WG_DEFAULT_ADDRESS.replace('x', '1');
 
           config = {
@@ -55,10 +54,6 @@ module.exports = class WireGuard {
         await this.__saveConfig(config);
         await Util.exec('wg-quick down wg0').catch(() => {});
         await Util.exec('wg-quick up wg0');
-        await Util.exec(`iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS.replace('x', '0')}/24 -o eth0 -j MASQUERADE`);
-        await Util.exec('iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT');
-        await Util.exec('iptables -A FORWARD -i wg0 -j ACCEPT');
-        await Util.exec('iptables -A FORWARD -o wg0 -j ACCEPT');
         await this.__syncConfig();
 
         return config;
@@ -66,10 +61,6 @@ module.exports = class WireGuard {
     }
 
     return this.__configPromise;
-  }
-
-  async areClientsHardened() {
-    return WG_HARDEN_CLIENTS;
   }
 
   async saveConfig() {
@@ -111,6 +102,14 @@ AllowedIPs = ${client.address}/32`;
     debug('Syncing config...');
     await Util.exec('wg syncconf wg0 <(wg-quick strip wg0)');
     debug('Config synced.');
+  }
+
+  async getDns() {
+    return WG_DEFAULT_DNS;
+  }
+
+  async areClientsHardened() {
+    return WG_HARDEN_CLIENTS;
   }
 
   async getClients() {
@@ -174,6 +173,9 @@ AllowedIPs = ${client.address}/32`;
   }
 
   async getClientConfiguration({ clientId }) {
+    // Keys of client are regenerated on each call!
+    // Gateway must be restarted to update to new keys
+
     const config = await this.getConfig();
     const client = await this.getClient({ clientId });
     let { privateKey } = client;
@@ -182,7 +184,7 @@ AllowedIPs = ${client.address}/32`;
       // Generate new client keys
       privateKey = await Util.exec('wg genkey');
       client.privateKey = null;
-      client.publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`);
+      client.publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, privateKey);
       client.preSharedKey = await Util.exec('wg genpsk');
 
       // Restart gateway to complete key regen
@@ -198,7 +200,7 @@ ${WG_DEFAULT_DNS ? `DNS = ${WG_DEFAULT_DNS}` : ''}
 [Peer]
 PublicKey = ${config.server.publicKey}
 PresharedKey = ${client.preSharedKey}
-AllowedIPs = ${WG_ALLOWED_IPS}
+AllowedIPs = ${client.allowedIPs}
 PersistentKeepalive = ${WG_PERSISTENT_KEEPALIVE}
 Endpoint = ${WG_HOST}:${WG_PORT}`;
   }
@@ -211,13 +213,15 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
     });
   }
 
-  async createClient({ name }) {
+  async createClient({ name, allowedIPs }) {
     if (!name) {
       throw new Error('Missing: Name');
     }
+    if (!allowedIPs) {
+      throw new Error('Missing: allowedIPs');
+    }
 
     const config = await this.getConfig();
-
     const privateKey = await Util.exec('wg genkey');
     const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`);
     const preSharedKey = await Util.exec('wg genpsk');
@@ -250,6 +254,7 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
       realPrivateKey,
       publicKey,
       preSharedKey,
+      allowedIPs,
 
       createdAt: new Date(),
       updatedAt: new Date(),

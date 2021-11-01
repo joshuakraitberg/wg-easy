@@ -89,6 +89,9 @@ module.exports = class Server {
       .get('/api/wireguard/hardened', Util.promisify(async req => {
         return WireGuard.areClientsHardened();
       }))
+      .get('/api/wireguard/dns', Util.promisify(async req => {
+        return WireGuard.getDns();
+      }))
       .get('/api/wireguard/client', Util.promisify(async req => {
         return WireGuard.getClients();
       }))
@@ -108,8 +111,8 @@ module.exports = class Server {
         res.send(config);
       }))
       .post('/api/wireguard/client', Util.promisify(async req => {
-        const { name } = req.body;
-        return WireGuard.createClient({ name });
+        const { name, allowedIPs } = req.body;
+        return WireGuard.createClient({ name, allowedIPs });
       }))
       .delete('/api/wireguard/client/:clientId', Util.promisify(async req => {
         const { clientId } = req.params;
