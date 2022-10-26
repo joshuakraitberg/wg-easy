@@ -41,6 +41,7 @@ module.exports = class WireGuard {
           config = JSON.parse(config);
           debug('Configuration loaded.');
         } catch (err) {
+          debug('Generating new configuration...');
           const privateKey = await Util.exec('wg genkey');
           const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, {
             log: 'echo ***hidden*** | wg pubkey',
@@ -59,18 +60,7 @@ module.exports = class WireGuard {
         }
 
         await this.__saveConfig(config);
-        await Util.exec('wg-quick down wg0').catch(() => { });
-        await Util.exec('wg-quick up wg0').catch(err => {
-          if (err && err.message && err.message.includes('Cannot find device "wg0"')) {
-            throw new Error('WireGuard exited with the error: Cannot find device "wg0"\nThis usually means that your host\'s kernel does not support WireGuard!');
-          }
-
-          throw err;
-        });
-        // await Util.exec(`iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS.replace('x', '0')}/24 -o eth0 -j MASQUERADE`);
-        // await Util.exec('iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT');
-        // await Util.exec('iptables -A FORWARD -i wg0 -j ACCEPT');
-        // await Util.exec('iptables -A FORWARD -o wg0 -j ACCEPT');
+        await this.__restartGateway();
         await this.__syncConfig();
 
         return config;
@@ -78,6 +68,19 @@ module.exports = class WireGuard {
     }
 
     return this.__configPromise;
+  }
+
+  async __restartGateway() {
+    this.gatewayUp = false;
+    debug('Restarting gateway...');
+    await Util.exec('wg-quick down wg0').catch(() => { });
+    await Util.exec('wg-quick up wg0').catch(err => {
+      if (err && err.message && err.message.includes('Cannot find device "wg0"')) {
+        throw new Error('WireGuard exited with the error: Cannot find device "wg0"\nThis usually means that your host\'s kernel does not support WireGuard!');
+      }
+      throw err;
+    });
+    this.gatewayUp = true;
   }
 
   async saveConfig() {
@@ -148,6 +151,10 @@ AllowedIPs = ${client.address}/32`;
       transferTx: null,
     }));
 
+    if (!this.gatewayUp) {
+      return clients;
+    }
+
     // Loop WireGuard status
     const dump = await Util.exec('wg show wg0 dump', {
       log: false,
@@ -193,12 +200,27 @@ AllowedIPs = ${client.address}/32`;
   }
 
   async getClientConfiguration({ clientId }) {
+    // Keys of client are regenerated on each call!
+    // Gateway must be restarted to update to new keys
+
     const config = await this.getConfig();
     const client = await this.getClient({ clientId });
 
+    // Generate new client keys
+    debug(`Client config requested: ${client.name} / ${clientId}`);
+    const privateKey = await Util.exec('wg genkey');
+    client.privateKey = null;
+    client.publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, {
+      log: 'echo ***hidden*** | wg pubkey',
+    });
+    client.preSharedKey = await Util.exec('wg genpsk');
+
+    // Restart gateway to complete key regen
+    await this.saveConfig();
+
     return `
 [Interface]
-PrivateKey = ${client.privateKey}
+PrivateKey = ${privateKey}
 Address = ${client.address}/24
 ${WG_DEFAULT_DNS ? `DNS = ${WG_DEFAULT_DNS}` : ''}
 ${WG_MTU ? `MTU = ${WG_MTU}` : ''}
@@ -224,10 +246,12 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
       throw new Error('Missing: Name');
     }
 
+    debug(`Creating new client: ${name}`);
     const config = await this.getConfig();
-
     const privateKey = await Util.exec('wg genkey');
-    const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`);
+    const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, {
+      log: 'echo ***hidden*** | wg pubkey',
+    });
     const preSharedKey = await Util.exec('wg genpsk');
 
     // Calculate next IP
@@ -252,27 +276,25 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
     const client = {
       name,
       address,
-      privateKey,
+      privateKey: null,
       publicKey,
       preSharedKey,
-
       createdAt: new Date(),
       updatedAt: new Date(),
-
       enabled: true,
     };
 
     config.clients[clientId] = client;
 
     await this.saveConfig();
-
-    return client;
   }
 
   async deleteClient({ clientId }) {
     const config = await this.getConfig();
+    const client = config.clients[clientId];
 
-    if (config.clients[clientId]) {
+    if (client) {
+      debug(`Deleting client:  ${client.name} / ${clientId}`);
       delete config.clients[clientId];
       await this.saveConfig();
     }
@@ -281,6 +303,7 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
   async enableClient({ clientId }) {
     const client = await this.getClient({ clientId });
 
+    debug(`Enabling client: ${client.name} / ${clientId}`);
     client.enabled = true;
     client.updatedAt = new Date();
 
@@ -290,6 +313,7 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
   async disableClient({ clientId }) {
     const client = await this.getClient({ clientId });
 
+    debug(`Disabling client: ${client.name} / ${clientId}`);
     client.enabled = false;
     client.updatedAt = new Date();
 
@@ -299,6 +323,7 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
   async updateClientName({ clientId, name }) {
     const client = await this.getClient({ clientId });
 
+    debug(`Upading client name: ${name} / ${clientId}`);
     client.name = name;
     client.updatedAt = new Date();
 
@@ -312,6 +337,7 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
       throw new ServerError(`Invalid Address: ${address}`, 400);
     }
 
+    debug(`Updating client address: ${client.name} / ${clientId}`);
     client.address = address;
     client.updatedAt = new Date();
 

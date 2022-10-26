@@ -35,6 +35,8 @@ new Vue({
     clientsPersist: {},
     clientDelete: null,
     clientCreate: null,
+    clientQRShow: null,
+    clientConfigDownload: null,
     clientCreateName: '',
     clientEditName: null,
     clientEditNameId: null,
