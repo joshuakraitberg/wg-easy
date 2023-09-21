@@ -29,7 +29,7 @@ iptables -t nat -A POSTROUTING -s ${module.exports.WG_DEFAULT_ADDRESS.replace(
     "x",
     "0"
   )}/24 -o ${module.exports.WG_DEVICE} -j MASQUERADE;
-iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT;
+iptables -A INPUT -p udp -m udp --dport ${module.exports.WG_PORT} -j ACCEPT;
 iptables -A FORWARD -i ${module.exports.WG_IF} -j ACCEPT;
 iptables -A FORWARD -o ${module.exports.WG_IF} -j ACCEPT;
 `
